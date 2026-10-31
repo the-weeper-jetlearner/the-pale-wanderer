@@ -22,103 +22,131 @@ PLAYER_ASSETS = {
 PLAYER_LAYER = 1
 
 
-PLAYER_SPEED = 200 
 
-# Animation settings
+PLAYER_SPEED = 200
 ANIMATION_SPEED = 150
 
-
 class Player(pygame.sprite.Sprite):
-    
+
     def __init__(self, x, y):
         super().__init__()
+
         self.assets = PLAYER_ASSETS
-        
+
         self.image = self.assets["walk_1"]
         self.rect = self.image.get_rect(topleft=(x, y))
-        
 
         self.x = float(self.rect.x)
         self.y = float(self.rect.y)
-        
+
+        # Movement
         self.direction = pygame.math.Vector2(0, 0)
         self.speed = PLAYER_SPEED
-        
+
+        # Physics
+        self.gravity = 1200
+        self.vel_y = 0
+        self.jump_strength = -500
+        self.on_ground = False
+
+        # Ground position
+        self.ground_y = 400
+
+        # Animation
         self.walk_frame = 0
         self.last_animation_update = 0
         self.is_moving = False
         self.facing_right = True
-        
+
         self.walk_frames = [
             self.assets["walk_1"],
             self.assets["walk_2"],
             self.assets["walk_3"],
             self.assets["walk_4"],
         ]
-    
+
     def update(self, dt, keys):
 
         self.direction = pygame.math.Vector2(0, 0)
         self.is_moving = False
-        self.vel = 0
-        
 
+        # Horizontal movement
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.direction.x = -1
             self.is_moving = True
             self.facing_right = False
+
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.direction.x = 1
             self.is_moving = True
             self.facing_right = True
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            pass
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            self.direction.y = 1
-            self.is_moving = True
-        if keys[pygame.K_SPACE] or keys[pygame.K_SPACE]:
-                self.direction.y = -10
-                self.is_moving = True
 
-        if self.rect.y>600:
-            self.rect.y=600
-                
-        
-
+        # Normalize movement
         if self.direction.length() > 0:
             self.direction = self.direction.normalize()
-        
 
+        # Apply horizontal movement
         self.rect.x += self.direction.x * self.speed * dt
-        self.rect.y += self.direction.y * self.speed * dt
-        self.vel = min(self.vel + 0.5, 8)
-        self.direction.y += int(self.vel)
-        #self.rect.topleft = (int(self.x), int(self.y))
-        
 
+        # Apply gravity
+        self.vel_y += self.gravity * dt
+
+        # Apply vertical velocity
+        self.rect.y += self.vel_y * dt
+
+        # Ground collision
+        if self.rect.bottom >= self.ground_y:
+
+            self.rect.bottom = self.ground_y
+            self.vel_y = 0
+            self.on_ground = True
+
+        else:
+            self.on_ground = False
+
+        # Update animation
         if self.is_moving:
             self._update_animation(dt)
-        else:
 
-            self.image = self.walk_frames[0] if self.facing_right else pygame.transform.flip(self.walk_frames[0], True, False)
-    
+        else:
+            self.image = (
+                self.walk_frames[0]
+                if self.facing_right
+                else pygame.transform.flip(
+                    self.walk_frames[0], True, False
+                )
+            )
+
+    def jump(self):
+
+        if self.on_ground:
+            self.vel_y = self.jump_strength
+            self.on_ground = False
+
     def _update_animation(self, dt):
 
         now = pygame.time.get_ticks()
+
         if now - self.last_animation_update > ANIMATION_SPEED:
+
             self.last_animation_update = now
             self.walk_frame += 1
+
             if self.walk_frame >= len(self.walk_frames):
                 self.walk_frame = 0
-            
 
             if self.facing_right:
                 self.image = self.walk_frames[self.walk_frame]
             else:
-                self.image = pygame.transform.flip(self.walk_frames[self.walk_frame], True, False)
-    
+                self.image = pygame.transform.flip(
+                    self.walk_frames[self.walk_frame],
+                    True,
+                    False
+                )
+
     def draw(self, surface):
         surface.blit(self.image, self.rect)
+
 
 P1=Player(800/2, 600/2)
 player_group=pygame.sprite.Group()
@@ -779,20 +807,23 @@ while running:
     dt = clock.tick(60) / 1000.0  # delta time in seconds
     
     for event in pygame.event.get():
+    
         if event.type == pygame.QUIT:
             running = False
-
-    # Get keys
-    keys = pygame.key.get_pressed()
     
-    # Update player
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                P1.jump()
+
+    keys = pygame.key.get_pressed()
+
     player_group.update(dt, keys)
     
-    # Draw
     screen.fill((0, 0, 0))
-    screen.blit(tiles_hole_fungal_fill,(300,400))
-
+    screen.blit(tiles_hole_fungal_fill, (300, 400))
+    
     player_group.draw(screen)
+    
     pygame.display.flip()
 
 pygame.quit()
